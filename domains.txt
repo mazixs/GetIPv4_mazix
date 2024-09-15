@@ -1,0 +1,4 @@
+chatgpt.com
+chat.openai.com
+openai.com
+android.chat.openai.com
