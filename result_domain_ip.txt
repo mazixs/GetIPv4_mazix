@@ -1,8 +1,0 @@
-chatgpt.com: 188.114.99.229
-chatgpt.com: 188.114.98.229
-chat.openai.com: 172.64.150.28
-chat.openai.com: 104.18.37.228
-openai.com: 172.64.154.211
-openai.com: 104.18.33.45
-android.chat.openai.com: 172.64.155.214
-android.chat.openai.com: 104.18.32.42
