@@ -115,6 +115,19 @@ class AppConfig:
                     f"'{option}' in [settings] section must be a non-empty string."
                 )
         
+        # Validate monitoring settings
+        monitoring_duration = self.get_int_setting('settings', 'monitoring_duration_minutes', fallback=0)
+        if monitoring_duration < 0:
+            raise ConfigurationError(
+                "'monitoring_duration_minutes' in [settings] must be a non-negative integer."
+            )
+        
+        monitoring_interval = self.get_int_setting('settings', 'monitoring_interval_seconds', fallback=30)
+        if monitoring_interval <= 0:
+            raise ConfigurationError(
+                "'monitoring_interval_seconds' in [settings] must be a positive integer."
+            )
+        
         self._validate_subnet_mask()
 
     def _validate_subnet_mask(self):
@@ -297,6 +310,14 @@ class AppConfig:
                 f"Cannot convert validated subnet_mask ('{subnet_mask_value}') to prefix format. "
                 "This indicates an issue with internal validation logic."
             )
+
+    def get_monitoring_duration_minutes(self) -> int:
+        """Returns the monitoring duration in minutes."""
+        return self.get_int_setting('settings', 'monitoring_duration_minutes', fallback=0)
+
+    def get_monitoring_interval_seconds(self) -> int:
+        """Returns the monitoring interval in seconds."""
+        return self.get_int_setting('settings', 'monitoring_interval_seconds', fallback=30)
 
 if __name__ == '__main__':
     # This block is for example usage or standalone testing of this module.

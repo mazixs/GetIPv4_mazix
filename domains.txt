@@ -1,0 +1,10 @@
+google.com
+youtube.com
+facebook.com
+twitter.com
+instagram.com
+linkedin.com
+github.com
+stackoverflow.com
+reddit.com
+wikipedia.org

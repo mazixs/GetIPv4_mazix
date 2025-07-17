@@ -1,5 +1,4 @@
-"""
-Resolves domain names to IPv4 addresses and generates network route commands.
+"""Resolves domain names to IPv4 addresses and generates network route commands.
 
 This script reads a list of domain names from specified input files, resolves
 them to IPv4 addresses using configured DNS servers, and then processes these
@@ -15,11 +14,18 @@ like `socket` for DNS resolution and `ipaddress` for network calculations.
 Logging is used for operational messages, warnings, and errors, outputting
 to both console and a 'script_run.log' file.
 """
+from __future__ import annotations
+
+import ipaddress
+import logging
 import os
 import socket
-import ipaddress
 import sys
-import logging
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import TextIO
+
 from config_handler import AppConfig, ConfigurationError
 
 # Logging is configured in main()
@@ -31,9 +37,10 @@ def remove_file_if_exists(file_path: str):
     Args:
         file_path (str): The path to the file to be removed.
     """
-    if os.path.exists(file_path):
+    path = Path(file_path)
+    if path.exists():
         try:
-            os.remove(file_path)
+            path.unlink()
             logging.info(f"Файл '{file_path}' удален.")
         except OSError as e:
             logging.error(f"Ошибка при удалении файла '{file_path}': {e}")
@@ -129,24 +136,27 @@ def read_domains_from_file(file_path: str) -> list[str]:
     """
     domains = []
     try:
-        with open(file_path, 'r', encoding='utf-8') as file:
-            domains = [line.strip() for line in file if line.strip()]
+        path = Path(file_path)
+        content = path.read_text(encoding='utf-8')
+        domains = [line.strip() for line in content.splitlines() if line.strip()]
     except FileNotFoundError:
         logging.error(f"Файл с доменами '{file_path}' не найден.")
     except IOError as e:
         logging.error(f"Ошибка чтения файла '{file_path}': {e}")
+    
+    logging.info(f"Загружено {len(domains)} доменов из '{file_path}'.")
     return domains
 
 def process_domains(
     domains: list[str],
     app_config: AppConfig,
     dns_servers: list[str],
-    unique_routes: set,
+    unique_routes: set[str],
     subnet_mask_for_calc: str,
-    domain_ip_output_fh, # File handler for domain:ip output
-    only_ipv4_output_fh, # File handler for unique IPs
-    keenetic_output_fh   # File handler for Keenetic routes
-):
+    domain_ip_output_fh: TextIO,
+    only_ipv4_output_fh: TextIO,
+    keenetic_output_fh: TextIO,
+) -> None:
     """
     Processes a list of domains: resolves them, calculates network routes, and writes results.
 
@@ -193,23 +203,104 @@ def process_domains(
     # The redundant 'if route_command not in unique_routes:' block that was previously here
     # has been confirmed as removed in an earlier step.
 
-def main():
+def process_domains_monitoring(
+    domains: list[str],
+    dns_servers: list[str],
+    unique_routes: set[str],
+    seen_domain_ips: set[str],
+    seen_ips: set[str],
+    subnet_mask_for_calc: str,
+    output_domain_ip_file_path: str,
+    output_only_ipv4_file_path: str,
+    output_keenetic_file_path: str,
+    current_time: datetime,
+) -> None:
+    """
+    Processes domains for monitoring mode, accumulating unique data over time.
+    
+    Only writes new unique combinations to avoid duplicates while preserving
+    historical data across monitoring iterations.
+    
+    Args:
+        domains: List of domain names to process
+        dns_servers: List of DNS servers for resolution
+        unique_routes: Set to track unique route commands
+        seen_domain_ips: Set to track unique domain:IP combinations
+        seen_ips: Set to track unique IP addresses
+        subnet_mask_for_calc: Subnet mask for network calculations
+        output_domain_ip_file_path: Path to domain:IP output file
+        output_only_ipv4_file_path: Path to IP-only output file
+        output_keenetic_file_path: Path to Keenetic routes output file
+        current_time: Current timestamp for logging
+    """
+    new_domain_ips = []
+    new_ips = []
+    new_routes = []
+    
+    for domain in domains:
+        logging.debug(f"Обрабатываю домен: {domain}")
+        ipv4_addresses = get_ipv4_addresses(domain, dns_servers)
+        
+        for address in ipv4_addresses:
+            domain_ip_combo = f"{domain}: {address}"
+            
+            # Check if this domain:IP combination is new
+            if domain_ip_combo not in seen_domain_ips:
+                seen_domain_ips.add(domain_ip_combo)
+                new_domain_ips.append(domain_ip_combo)
+            
+            # Check if this IP is new
+            if address not in seen_ips:
+                seen_ips.add(address)
+                new_ips.append(address)
+            
+            # Calculate route and check if it's new
+            network_address, netmask = calculate_network(address, subnet_mask_for_calc)
+            if network_address and netmask:
+                route_command = f"route ADD {network_address} MASK {netmask} 0.0.0.0"
+                if route_command not in unique_routes:
+                    unique_routes.add(route_command)
+                    new_routes.append(route_command)
+            else:
+                logging.warning(
+                    f"Маршрут для IP '{address}' (домен: {domain}) не будет сгенерирован "
+                    "из-за ошибки вычисления сети."
+                )
+    
+    # Write new data to files
+    try:
+        if new_domain_ips:
+            with Path(output_domain_ip_file_path).open('a', encoding="utf-8") as f:
+                for entry in new_domain_ips:
+                    f.write(f"{entry}\n")
+            logging.info(f"Добавлено {len(new_domain_ips)} новых комбинаций домен:IP")
+        
+        if new_ips:
+            with Path(output_only_ipv4_file_path).open('a', encoding="utf-8") as f:
+                for entry in new_ips:
+                    f.write(f"{entry}\n")
+            logging.info(f"Добавлено {len(new_ips)} новых IP-адресов")
+        
+        if new_routes:
+            with Path(output_keenetic_file_path).open('a', encoding="utf-8") as f:
+                for entry in new_routes:
+                    f.write(f"{entry}\n")
+            logging.info(f"Добавлено {len(new_routes)} новых маршрутов")
+        
+        if not new_domain_ips and not new_ips and not new_routes:
+            logging.info("Новых данных не обнаружено в этой итерации")
+            
+    except IOError as e:
+        logging.error(f"Ошибка записи в выходные файлы: {e}")
+
+def main() -> None:
     """
     Main function to orchestrate the domain resolution and route generation process.
 
     It initializes configuration, sets up logging, reads domains, processes them,
-    and writes the output to configured files.
+    and writes the output to configured files. Supports monitoring mode for
+    continuous data collection over a specified time period.
     """
-    # Configure basic logging to file and console.
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler("script_run.log", encoding='utf-8'),
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
-
     try:
         app_config = AppConfig() # Default 'config.ini'
     except ConfigurationError as e:
@@ -222,6 +313,19 @@ def main():
         logging.critical(f"Неожиданная ошибка при загрузке конфигурации: {e}", exc_info=True)
         sys.exit(1)
 
+    # Get log file path from config
+    log_file_path = app_config.get_setting('settings', 'log_file', 'result/script_run.log')
+    
+    # Configure basic logging to file and console.
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler(log_file_path, encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
     # Retrieve configuration settings via AppConfig instance.
     domain_files_paths = app_config.get_domain_files()
     output_domain_ip_file_path = app_config.get_output_file_path("output_domain_ip")
@@ -233,60 +337,101 @@ def main():
     # Subnet mask for calculation (e.g., "24", "/24", or "255.255.255.0")
     subnet_mask_for_calc = app_config.get_subnet_mask_value_for_network_calculation()
 
+    # Get monitoring settings
+    monitoring_duration_minutes = app_config.get_monitoring_duration_minutes()
+    monitoring_interval_seconds = app_config.get_monitoring_interval_seconds()
+
     dns_servers = app_config.get_dns_servers_list()
     if not dns_servers:
-        # This warning is important if DNS resolution is expected to occur.
-        # AppConfig validation should catch cases where external DNS is enabled but no servers are listed.
         logging.warning(
             "Список DNS-серверов пуст. Разрешение имен будет ограничено или невозможно."
         )
 
-    # Clear output files before generating new content.
-    remove_file_if_exists(output_domain_ip_file_path)
-    remove_file_if_exists(output_only_ipv4_file_path)
-    remove_file_if_exists(output_keenetic_file_path)
-
+    # Read all domains from files
     all_domains = []
     for domain_file_path in domain_files_paths:
-        # Ensure paths from config are stripped of any accidental whitespace.
         domains_from_file = read_domains_from_file(domain_file_path.strip())
         all_domains.extend(domains_from_file)
     
     if not all_domains:
         logging.info("Не найдено доменов для обработки. Проверьте файлы доменов и конфигурацию.")
-        sys.exit(0) # Graceful exit if there's nothing to process.
+        sys.exit(0)
 
-    unique_routes = set() # Used to store unique route commands.
+    # Initialize tracking sets for unique data
+    unique_routes = set()
+    seen_domain_ips = set()  # Track unique domain:IP combinations
+    seen_ips = set()  # Track unique IP addresses
 
-    # Open output files once for all write operations.
+    # Create output directories if they don't exist
+    Path(output_domain_ip_file_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_only_ipv4_file_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_keenetic_file_path).parent.mkdir(parents=True, exist_ok=True)
+
+    # Initialize output files
     try:
-        # Using 'a' (append) mode, but files are cleared beforehand by remove_file_if_exists.
-        # This is effectively 'w' (write) but safer if remove_file_if_exists fails silently.
-        with open(output_domain_ip_file_path, 'a', encoding="utf-8") as domain_ip_output_fh, \
-             open(output_only_ipv4_file_path, 'a', encoding="utf-8") as only_ipv4_output_fh, \
-             open(output_keenetic_file_path, 'a', encoding="utf-8") as keenetic_output_fh:
+        Path(output_domain_ip_file_path).write_text("", encoding="utf-8")
+        Path(output_only_ipv4_file_path).write_text("", encoding="utf-8")
+        Path(output_keenetic_file_path).write_text("", encoding="utf-8")
+    except IOError as e:
+        logging.error(f"Ошибка создания выходных файлов: {e}")
+        sys.exit(1)
+
+    if monitoring_duration_minutes > 0:
+        logging.info("Запуск в режиме мониторинга")
+        start_time = time.time()
+        end_time = start_time + (monitoring_duration_minutes * 60)
+        iteration = 0
+        
+        while time.time() < end_time:
+            iteration += 1
+            current_time = datetime.now()
+            logging.info(f"Итерация {iteration} мониторинга: {current_time}")
             
-            process_domains(
+            # Process domains and collect new data
+            process_domains_monitoring(
                 domains=all_domains,
-                app_config=app_config, # Passed for potential future use
                 dns_servers=dns_servers,
                 unique_routes=unique_routes,
+                seen_domain_ips=seen_domain_ips,
+                seen_ips=seen_ips,
                 subnet_mask_for_calc=subnet_mask_for_calc,
-                domain_ip_output_fh=domain_ip_output_fh,
-                only_ipv4_output_fh=only_ipv4_output_fh,
-                keenetic_output_fh=keenetic_output_fh
+                output_domain_ip_file_path=output_domain_ip_file_path,
+                output_only_ipv4_file_path=output_only_ipv4_file_path,
+                output_keenetic_file_path=output_keenetic_file_path,
+                current_time=current_time
             )
-    except IOError as e:
-        logging.error(f"Ошибка записи в выходной файл: {e}", exc_info=True)
-        sys.exit(1)
+            
+            # Wait for next iteration if not the last one
+            if time.time() + monitoring_interval_seconds < end_time:
+                time.sleep(monitoring_interval_seconds)
+            else:
+                break
+                
+        logging.info(f"Мониторинг завершен. Обработано {iteration} итераций.")
+    else:
+        # Single run mode (legacy behavior)
+        logging.info("Запуск в режиме однократного сбора данных")
+        current_time = datetime.datetime.now()
+        process_domains_monitoring(
+            domains=all_domains,
+            dns_servers=dns_servers,
+            unique_routes=unique_routes,
+            seen_domain_ips=seen_domain_ips,
+            seen_ips=seen_ips,
+            subnet_mask_for_calc=subnet_mask_for_calc,
+            output_domain_ip_file_path=output_domain_ip_file_path,
+            output_only_ipv4_file_path=output_only_ipv4_file_path,
+            output_keenetic_file_path=output_keenetic_file_path,
+            current_time=current_time
+        )
 
     logging.info("Результаты сохранены в файлы:")
     logging.info(f"1. {output_domain_ip_file_path} - домен: IPv4")
     logging.info(f"2. {output_only_ipv4_file_path} - только IPv4 адреса")
-    logging.info(
-        f"3. {output_keenetic_file_path} - команды для Keenetic с агрегированной подсетью "
-        f"{subnet_prefix_display}" # Use display version of subnet.
-    )
+    logging.info(f"3. {output_keenetic_file_path} - команды для Keenetic с подсетью {subnet_prefix_display}")
+    logging.info(f"Уникальных маршрутов: {len(unique_routes)}")
+    logging.info(f"Уникальных IP-адресов: {len(seen_ips)}")
+    logging.info(f"Уникальных комбинаций домен:IP: {len(seen_domain_ips)}")
 
 if __name__ == "__main__":
     main()
