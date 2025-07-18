@@ -1,0 +1,114 @@
+name: ❓ Вопрос или поддержка
+description: Задать вопрос о GetIPv4 или получить помощь
+title: "[QUESTION] "
+labels: ["question", "help-wanted"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за ваш вопрос! Пожалуйста, заполните форму ниже, чтобы мы могли лучше помочь вам.
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Тип вопроса
+      description: Выберите категорию вашего вопроса
+      options:
+        - Установка и настройка
+        - Использование функций
+        - Конфигурация
+        - Производительность
+        - Интеграция с другими системами
+        - Общие вопросы
+        - Другое
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Ваш вопрос
+      description: Четко сформулируйте ваш вопрос
+      placeholder: Опишите ваш вопрос подробно...
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Контекст
+      description: Предоставьте контекст вашего вопроса
+      placeholder: |
+        - Что вы пытаетесь достичь?
+        - Какие шаги вы уже предприняли?
+        - Какие результаты вы ожидаете?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение
+      description: Информация о вашем окружении
+      value: |
+        - ОС: [например, Windows 11, Ubuntu 22.04]
+        - Python версия: [например, 3.12.1]
+        - Версия GetIPv4: [например, v1.0.0]
+        - Конфигурация: [особенности вашей настройки]
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted-solutions
+    attributes:
+      label: Что вы уже пробовали
+      description: Опишите решения, которые вы уже пытались применить
+      placeholder: |
+        1. Попробовал...
+        2. Проверил...
+        3. Изменил...
+
+  - type: textarea
+    id: code-config
+    attributes:
+      label: Код или конфигурация
+      description: Если применимо, поделитесь релевантным кодом или конфигурацией
+      render: python
+      placeholder: |
+        # Вставьте ваш код или конфигурацию здесь
+        # Удалите любую чувствительную информацию
+
+  - type: textarea
+    id: logs-output
+    attributes:
+      label: Логи или вывод
+      description: Если применимо, добавьте логи или вывод команд
+      render: shell
+      placeholder: Вставьте логи или вывод здесь...
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Срочность
+      description: Насколько срочно вам нужна помощь?
+      options:
+        - Низкая - когда будет время
+        - Средняя - в ближайшие дни
+        - Высокая - нужно сегодня
+        - Критическая - блокирует работу
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверки
+      description: Пожалуйста, подтвердите следующее
+      options:
+        - label: Я прочитал документацию проекта
+          required: true
+        - label: Я искал похожие вопросы в Issues
+          required: true
+        - label: Я проверил FAQ (если есть)
+          required: false

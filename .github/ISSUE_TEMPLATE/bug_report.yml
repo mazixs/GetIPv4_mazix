@@ -1,0 +1,91 @@
+name: 🐛 Сообщение об ошибке
+description: Создать отчет об ошибке для улучшения GetIPv4
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за сообщение об ошибке! Пожалуйста, заполните форму ниже, чтобы помочь нам быстрее решить проблему.
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: Описание ошибки
+      description: Четкое и краткое описание того, что произошло
+      placeholder: Опишите ошибку...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Шаги для воспроизведения
+      description: Шаги для воспроизведения ошибки
+      placeholder: |
+        1. Перейти к '...'
+        2. Нажать на '...'
+        3. Прокрутить вниз до '...'
+        4. Увидеть ошибку
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Ожидаемое поведение
+      description: Четкое и краткое описание того, что вы ожидали
+      placeholder: Что должно было произойти?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: Фактическое поведение
+      description: Что произошло на самом деле
+      placeholder: Что произошло вместо этого?
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение
+      description: Информация о вашем окружении
+      value: |
+        - ОС: [например, Windows 11, Ubuntu 22.04]
+        - Python версия: [например, 3.12.1]
+        - Версия GetIPv4: [например, v1.0.0]
+        - Дополнительная информация: [любая другая релевантная информация]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Логи и вывод ошибок
+      description: Если применимо, добавьте логи или сообщения об ошибках
+      render: shell
+      placeholder: Вставьте логи здесь...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Дополнительный контекст
+      description: Добавьте любой другой контекст о проблеме здесь
+      placeholder: Любая дополнительная информация...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверки
+      description: Пожалуйста, подтвердите следующее
+      options:
+        - label: Я искал похожие проблемы и не нашел дубликатов
+          required: true
+        - label: Я прочитал документацию проекта
+          required: true
+        - label: Я использую последнюю версию GetIPv4
+          required: false

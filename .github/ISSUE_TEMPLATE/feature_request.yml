@@ -1,0 +1,101 @@
+name: ✨ Запрос функциональности
+description: Предложить новую функцию для GetIPv4
+title: "[FEATURE] "
+labels: ["enhancement", "needs-discussion"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за предложение новой функции! Пожалуйста, заполните форму ниже, чтобы помочь нам понять ваш запрос.
+
+  - type: textarea
+    id: feature-description
+    attributes:
+      label: Описание функции
+      description: Четкое и краткое описание того, что вы хотите добавить
+      placeholder: Опишите желаемую функцию...
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-solution
+    attributes:
+      label: Проблема, которую решает функция
+      description: Какую проблему решает эта функция? Связана ли она с фрустрацией?
+      placeholder: |
+        Я всегда расстраиваюсь, когда [...]
+        Было бы здорово, если бы [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Предлагаемое решение
+      description: Четкое и краткое описание того, что вы хотите видеть
+      placeholder: Опишите ваше решение...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Альтернативные решения
+      description: Четкое и краткое описание любых альтернативных решений или функций, которые вы рассматривали
+      placeholder: Опишите альтернативы...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Приоритет
+      description: Насколько важна эта функция для вас?
+      options:
+        - Низкий - было бы неплохо иметь
+        - Средний - улучшит мой рабочий процесс
+        - Высокий - критично для моего использования
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Предполагаемая сложность
+      description: Как вы оцениваете сложность реализации?
+      options:
+        - Простая - небольшие изменения
+        - Средняя - требует некоторой работы
+        - Сложная - значительные изменения
+        - Не знаю
+    validations:
+      required: false
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: Примеры использования
+      description: Опишите конкретные сценарии, где эта функция будет полезна
+      placeholder: |
+        1. Когда пользователь...
+        2. В случае если...
+        3. При работе с...
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Дополнительный контекст
+      description: Добавьте любой другой контекст, скриншоты или примеры о запросе функции здесь
+      placeholder: Любая дополнительная информация...
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверки
+      description: Пожалуйста, подтвердите следующее
+      options:
+        - label: Я искал похожие запросы функций и не нашел дубликатов
+          required: true
+        - label: Я прочитал документацию проекта и roadmap
+          required: true
+        - label: Эта функция соответствует целям проекта GetIPv4
+          required: true

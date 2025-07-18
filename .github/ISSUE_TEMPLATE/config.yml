@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Обсуждения
+    url: https://github.com/mazix/GetIPv4_mazix/discussions
+    about: Задавайте вопросы и обсуждайте идеи с сообществом
+  - name: 📖 Документация
+    url: https://github.com/mazix/GetIPv4_mazix/blob/main/README.md
+    about: Прочитайте документацию проекта
+  - name: 🔍 Поиск по Issues
+    url: https://github.com/mazix/GetIPv4_mazix/issues
+    about: Поищите существующие проблемы перед созданием новой
+  - name: 📊 Аудит проекта
+    url: https://github.com/mazix/GetIPv4_mazix/blob/main/docs/audit_report.md
+    about: Ознакомьтесь с результатами аудита проекта (оценка 8.0/10)

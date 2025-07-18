@@ -1,0 +1,134 @@
+name: 📚 Улучшение документации
+description: Предложить улучшения или исправления в документации
+title: "[DOCS] "
+labels: ["documentation", "good-first-issue"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо за помощь в улучшении документации GetIPv4! Хорошая документация делает проект доступнее для всех.
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Тип документации
+      description: Какой тип документации нуждается в улучшении?
+      options:
+        - README.md
+        - Комментарии в коде
+        - Примеры использования
+        - Руководство по установке
+        - API документация
+        - Руководство разработчика
+        - FAQ
+        - Другое
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-issue
+    attributes:
+      label: Текущая проблема
+      description: Опишите проблему с существующей документацией
+      placeholder: |
+        - Что неясно или отсутствует?
+        - Какая информация устарела?
+        - Что может запутать пользователей?
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Предлагаемое улучшение
+      description: Как можно улучшить документацию?
+      placeholder: |
+        - Что нужно добавить?
+        - Что нужно изменить?
+        - Как лучше объяснить?
+    validations:
+      required: true
+
+  - type: textarea
+    id: location
+    attributes:
+      label: Расположение
+      description: Где находится проблемная документация?
+      placeholder: |
+        - Файл: README.md
+        - Раздел: "Установка"
+        - Строки: 25-30
+        - URL: (если применимо)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Целевая аудитория
+      description: Для кого предназначено это улучшение?
+      options:
+        - Новые пользователи
+        - Опытные пользователи
+        - Разработчики
+        - Системные администраторы
+        - Все пользователи
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Примеры или ссылки
+      description: Предоставьте примеры хорошей документации или ссылки на ресурсы
+      placeholder: |
+        - Ссылки на хорошие примеры документации
+        - Конкретные примеры текста или кода
+        - Скриншоты (если применимо)
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Приоритет
+      description: Насколько важно это улучшение?
+      options:
+        - Низкий - косметические улучшения
+        - Средний - улучшает понимание
+        - Высокий - критично для пользователей
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Дополнительный контекст
+      description: Любая дополнительная информация, которая может помочь
+      placeholder: |
+        - Отзывы пользователей
+        - Частые вопросы
+        - Связанные проблемы
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Готовность к участию
+      description: Готовы ли вы помочь с улучшением?
+      options:
+        - label: Я готов помочь с написанием документации
+          required: false
+        - label: Я могу предоставить примеры или тестирование
+          required: false
+        - label: Я готов рецензировать изменения
+          required: false
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверки
+      description: Пожалуйста, подтвердите следующее
+      options:
+        - label: Я прочитал существующую документацию
+          required: true
+        - label: Я проверил, что подобные предложения не были сделаны ранее
+          required: true

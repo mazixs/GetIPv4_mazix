@@ -1,0 +1,146 @@
+name: 🔒 Отчет о безопасности
+description: Сообщить о проблеме безопасности в GetIPv4
+title: "[SECURITY] "
+labels: ["security", "priority-high"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ⚠️ **ВНИМАНИЕ**: Если вы обнаружили критическую уязвимость безопасности, пожалуйста, НЕ создавайте публичный issue.
+        Вместо этого свяжитесь с мейнтейнерами напрямую через приватные каналы.
+        
+        Для менее критичных проблем безопасности вы можете использовать эту форму.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Уровень серьезности
+      description: Оцените серьезность проблемы безопасности
+      options:
+        - Низкий - минимальное воздействие
+        - Средний - ограниченное воздействие
+        - Высокий - значительное воздействие
+        - Критический - серьезное воздействие на безопасность
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Категория безопасности
+      description: Выберите категорию проблемы безопасности
+      options:
+        - Инъекция кода
+        - Небезопасная обработка данных
+        - Утечка информации
+        - Небезопасные зависимости
+        - Проблемы конфигурации
+        - Проблемы аутентификации
+        - Другое
+    validations:
+      required: true
+
+  - type: textarea
+    id: vulnerability-description
+    attributes:
+      label: Описание уязвимости
+      description: Четкое описание проблемы безопасности
+      placeholder: Опишите уязвимость...
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Потенциальное воздействие
+      description: Какой ущерб может причинить эта уязвимость?
+      placeholder: |
+        - Какие данные могут быть скомпрометированы?
+        - Какие операции могут быть выполнены злоумышленником?
+        - Кто может быть затронут?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Шаги для воспроизведения
+      description: Как воспроизвести эту проблему безопасности?
+      placeholder: |
+        1. Настроить окружение...
+        2. Выполнить команду...
+        3. Наблюдать результат...
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected-versions
+    attributes:
+      label: Затронутые версии
+      description: Какие версии GetIPv4 затронуты?
+      placeholder: |
+        - Версия: v1.0.0
+        - Диапазон: v1.0.0 - v1.2.0
+        - Все версии
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Окружение
+      description: Информация о вашем окружении
+      value: |
+        - ОС: [например, Windows 11, Ubuntu 22.04]
+        - Python версия: [например, 3.12.1]
+        - Версия GetIPv4: [например, v1.0.0]
+        - Дополнительные компоненты: [веб-серверы, прокси, и т.д.]
+    validations:
+      required: true
+
+  - type: textarea
+    id: mitigation
+    attributes:
+      label: Возможные решения
+      description: Есть ли у вас идеи по устранению этой проблемы?
+      placeholder: |
+        - Временные обходные пути
+        - Предлагаемые исправления
+        - Рекомендации по конфигурации
+
+  - type: textarea
+    id: references
+    attributes:
+      label: Ссылки и источники
+      description: Ссылки на CVE, исследования безопасности или другие источники
+      placeholder: |
+        - CVE-XXXX-XXXX
+        - https://example.com/security-research
+        - Связанные уязвимости
+
+  - type: checkboxes
+    id: disclosure
+    attributes:
+      label: Ответственное раскрытие
+      description: Подтверждение принципов ответственного раскрытия
+      options:
+        - label: Я понимаю важность ответственного раскрытия уязвимостей
+          required: true
+        - label: Я не буду публично раскрывать детали до получения разрешения
+          required: true
+        - label: Я готов сотрудничать с мейнтейнерами для решения проблемы
+          required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Проверки
+      description: Пожалуйста, подтвердите следующее
+      options:
+        - label: Я проверил, что подобные проблемы не были сообщены ранее
+          required: true
+        - label: Я использую последнюю версию GetIPv4
+          required: false
+        - label: Я готов предоставить дополнительную информацию при необходимости
+          required: true

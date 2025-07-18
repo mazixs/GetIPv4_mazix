@@ -1,19 +1,3 @@
-"""Resolves domain names to IPv4 addresses and generates network route commands.
-
-This script reads a list of domain names from specified input files, resolves
-them to IPv4 addresses using configured DNS servers, and then processes these
-addresses to generate various output files:
-1.  A list of domain-to-IP mappings.
-2.  A list of unique IPv4 addresses.
-3.  A list of network route commands suitable for systems like Keenetic routers,
-    based on a configured subnet mask.
-
-Configuration is handled by the `AppConfig` class from `config_handler.py`,
-which reads settings from 'config.ini'. The script uses standard libraries
-like `socket` for DNS resolution and `ipaddress` for network calculations.
-Logging is used for operational messages, warnings, and errors, outputting
-to both console and a 'script_run.log' file.
-"""
 from __future__ import annotations
 
 import ipaddress
@@ -26,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TextIO
 
+import dns.resolver
 from config_handler import AppConfig, ConfigurationError
 
 # Logging is configured in main()
@@ -68,27 +53,41 @@ def get_ipv4_addresses(domain: str, dns_servers: list[str]) -> list[str]:
         return []
 
     addresses = []
+    
     for dns_server in dns_servers:
         try:
-            # Note: socket.gethostbyname_ex can be blocking.
-            # For large-scale applications, consider asynchronous DNS resolution.
-            # The current implementation resolves against each DNS server sequentially.
-            # The primary address is resolver[0], aliases are resolver[1], IPs are resolver[2]
-            hostname, aliaslist, ipaddrlist = socket.gethostbyname_ex(domain)
-            addresses.extend(ipaddrlist)
-            # Could break here if only one successful resolution is needed per domain.
-            # Current logic tries all DNS servers and aggregates unique results.
-        except socket.gaierror:
+            # Create a custom resolver for each DNS server
+            resolver = dns.resolver.Resolver()
+            resolver.nameservers = [dns_server]
+            resolver.timeout = 5
+            resolver.lifetime = 10
+            
+            # Query A records for IPv4 addresses
+            answers = resolver.resolve(domain, 'A')
+            for answer in answers:
+                addresses.append(str(answer))
+            
+            logging.debug(f"DNS {dns_server}: разрешен домен {domain} -> {[str(a) for a in answers]}")
+            
+        except dns.resolver.NXDOMAIN:
             logging.warning(
-                f"Не удалось разрешить домен: {domain} через DNS {dns_server} (gaierror)."
+                f"Домен {domain} не существует (NXDOMAIN) через DNS {dns_server}."
+            )
+        except dns.resolver.NoAnswer:
+            logging.warning(
+                f"Нет A-записей для домена {domain} через DNS {dns_server}."
+            )
+        except dns.resolver.Timeout:
+            logging.warning(
+                f"Таймаут при разрешении домена {domain} через DNS {dns_server}."
             )
         except Exception as e:
             # Catch any other unexpected errors during resolution with a specific server.
             logging.warning(
                 f"Неожиданная ошибка при разрешении домена: {domain} через DNS {dns_server}: {e}",
-                exc_info=False # Keep log concise for common network issues.
+                exc_info=False  # Keep log concise for common network issues.
             )
-    return list(set(addresses)) # Return unique addresses.
+    return list(set(addresses))  # Return unique addresses.
 
 def calculate_network(ip_str: str, subnet_mask_value: str) -> tuple[str | None, str | None]:
     """
@@ -111,12 +110,19 @@ def calculate_network(ip_str: str, subnet_mask_value: str) -> tuple[str | None, 
         # ipaddress.IPv4Network handles various mask formats like "24", "/24",
         # or "255.255.255.0".
         # strict=False allows the IP address to be a host address within the network.
-        network = ipaddress.IPv4Network(f"{ip_str}/{subnet_mask_value}", strict=False)
+        network = ipaddress.IPv4Network(
+            f"{ip_str}/{subnet_mask_value}", strict=False
+        )
         return str(network.network_address), str(network.netmask)
-    except (ipaddress.AddressValueError, ipaddress.NetmaskValueError, ValueError) as e:
+    except (
+        ipaddress.AddressValueError,
+        ipaddress.NetmaskValueError,
+        ValueError
+    ) as e:
         # Catches errors from invalid IP addresses or subnet mask formats.
         logging.error(
-            f"Ошибка при вычислении сети для IP '{ip_str}' с маской '{subnet_mask_value}': {e}"
+            f"Ошибка при вычислении сети для IP '{ip_str}' "
+            f"с маской '{subnet_mask_value}': {e}"
         )
         return None, None
 
@@ -138,7 +144,9 @@ def read_domains_from_file(file_path: str) -> list[str]:
     try:
         path = Path(file_path)
         content = path.read_text(encoding='utf-8')
-        domains = [line.strip() for line in content.splitlines() if line.strip()]
+        domains = [
+            line.strip() for line in content.splitlines() if line.strip()
+        ]
     except FileNotFoundError:
         logging.error(f"Файл с доменами '{file_path}' не найден.")
     except IOError as e:
@@ -189,16 +197,18 @@ def process_domains(
 
             network_address, netmask = calculate_network(address, subnet_mask_for_calc)
             
-            if network_address and netmask: # Check if calculation was successful
-                route_command = f"route ADD {network_address} MASK {netmask} 0.0.0.0"
+            if network_address and netmask:  # Check if calculation was successful
+                route_command = (
+                    f"route ADD {network_address} MASK {netmask} 0.0.0.0"
+                )
                 if route_command not in unique_routes:
                     unique_routes.add(route_command)
                     keenetic_output_fh.write(f"{route_command}\n")
             else:
                 # Log that route generation is skipped for this address.
                 logging.warning(
-                    f"Маршрут для IP '{address}' (домен: {domain}) не будет сгенерирован "
-                    "из-за ошибки вычисления сети."
+                    f"Маршрут для IP '{address}' (домен: {domain}) "
+                    "не будет сгенерирован из-за ошибки вычисления сети."
                 )
     # The redundant 'if route_command not in unique_routes:' block that was previously here
     # has been confirmed as removed in an earlier step.
@@ -257,32 +267,42 @@ def process_domains_monitoring(
             # Calculate route and check if it's new
             network_address, netmask = calculate_network(address, subnet_mask_for_calc)
             if network_address and netmask:
-                route_command = f"route ADD {network_address} MASK {netmask} 0.0.0.0"
+                route_command = (
+                    f"route ADD {network_address} MASK {netmask} 0.0.0.0"
+                )
                 if route_command not in unique_routes:
                     unique_routes.add(route_command)
                     new_routes.append(route_command)
             else:
                 logging.warning(
-                    f"Маршрут для IP '{address}' (домен: {domain}) не будет сгенерирован "
-                    "из-за ошибки вычисления сети."
+                    f"Маршрут для IP '{address}' (домен: {domain}) "
+                    "не будет сгенерирован из-за ошибки вычисления сети."
                 )
     
     # Write new data to files
     try:
         if new_domain_ips:
-            with Path(output_domain_ip_file_path).open('a', encoding="utf-8") as f:
+            with Path(output_domain_ip_file_path).open(
+                'a', encoding="utf-8"
+            ) as f:
                 for entry in new_domain_ips:
                     f.write(f"{entry}\n")
-            logging.info(f"Добавлено {len(new_domain_ips)} новых комбинаций домен:IP")
+            logging.info(
+                f"Добавлено {len(new_domain_ips)} новых комбинаций домен:IP"
+            )
         
         if new_ips:
-            with Path(output_only_ipv4_file_path).open('a', encoding="utf-8") as f:
+            with Path(output_only_ipv4_file_path).open(
+                'a', encoding="utf-8"
+            ) as f:
                 for entry in new_ips:
                     f.write(f"{entry}\n")
             logging.info(f"Добавлено {len(new_ips)} новых IP-адресов")
         
         if new_routes:
-            with Path(output_keenetic_file_path).open('a', encoding="utf-8") as f:
+            with Path(output_keenetic_file_path).open(
+                'a', encoding="utf-8"
+            ) as f:
                 for entry in new_routes:
                     f.write(f"{entry}\n")
             logging.info(f"Добавлено {len(new_routes)} новых маршрутов")
@@ -302,19 +322,23 @@ def main() -> None:
     continuous data collection over a specified time period.
     """
     try:
-        app_config = AppConfig() # Default 'config.ini'
+        app_config = AppConfig()  # Default 'config.ini'
     except ConfigurationError as e:
         logging.critical(f"Ошибка конфигурации: {e}")
         sys.exit(1)
-    except FileNotFoundError: # Should be caught by AppConfig, but as a safeguard
+    except FileNotFoundError:  # Should be caught by AppConfig, but as a safeguard
         logging.critical("Критическая ошибка: Файл config.ini не найден.")
         sys.exit(1)
-    except Exception as e: # Catch any other unexpected errors during AppConfig init
-        logging.critical(f"Неожиданная ошибка при загрузке конфигурации: {e}", exc_info=True)
+    except Exception as e:  # Catch any other unexpected errors during AppConfig init
+        logging.critical(
+            f"Неожиданная ошибка при загрузке конфигурации: {e}", exc_info=True
+        )
         sys.exit(1)
 
     # Get log file path from config
-    log_file_path = app_config.get_setting('settings', 'log_file', 'result/script_run.log')
+    log_file_path = app_config.get_setting(
+        'settings', 'log_file', 'result/script_run.log'
+    )
     
     # Configure basic logging to file and console.
     logging.basicConfig(
@@ -328,14 +352,22 @@ def main() -> None:
 
     # Retrieve configuration settings via AppConfig instance.
     domain_files_paths = app_config.get_domain_files()
-    output_domain_ip_file_path = app_config.get_output_file_path("output_domain_ip")
-    output_only_ipv4_file_path = app_config.get_output_file_path("output_only_ipv4")
-    output_keenetic_file_path = app_config.get_output_file_path("output_keenetic")
+    output_domain_ip_file_path = app_config.get_output_file_path(
+        "output_domain_ip"
+    )
+    output_only_ipv4_file_path = app_config.get_output_file_path(
+        "output_only_ipv4"
+    )
+    output_keenetic_file_path = app_config.get_output_file_path(
+        "output_keenetic"
+    )
     
     # Subnet mask for display purposes (e.g., "/24")
     subnet_prefix_display = app_config.get_subnet_mask_prefix()
     # Subnet mask for calculation (e.g., "24", "/24", or "255.255.255.0")
-    subnet_mask_for_calc = app_config.get_subnet_mask_value_for_network_calculation()
+    subnet_mask_for_calc = (
+        app_config.get_subnet_mask_value_for_network_calculation()
+    )
 
     # Get monitoring settings
     monitoring_duration_minutes = app_config.get_monitoring_duration_minutes()
@@ -344,7 +376,8 @@ def main() -> None:
     dns_servers = app_config.get_dns_servers_list()
     if not dns_servers:
         logging.warning(
-            "Список DNS-серверов пуст. Разрешение имен будет ограничено или невозможно."
+            "Список DNS-серверов пуст. "
+            "Разрешение имен будет ограничено или невозможно."
         )
 
     # Read all domains from files
@@ -354,18 +387,27 @@ def main() -> None:
         all_domains.extend(domains_from_file)
     
     if not all_domains:
-        logging.info("Не найдено доменов для обработки. Проверьте файлы доменов и конфигурацию.")
+        logging.info(
+            "Не найдено доменов для обработки. "
+            "Проверьте файлы доменов и конфигурацию."
+        )
         sys.exit(0)
 
     # Initialize tracking sets for unique data
     unique_routes = set()
     seen_domain_ips = set()  # Track unique domain:IP combinations
-    seen_ips = set()  # Track unique IP addresses
+    seen_ips = set()         # Track unique IP addresses
 
     # Create output directories if they don't exist
-    Path(output_domain_ip_file_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(output_only_ipv4_file_path).parent.mkdir(parents=True, exist_ok=True)
-    Path(output_keenetic_file_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(output_domain_ip_file_path).parent.mkdir(
+        parents=True, exist_ok=True
+    )
+    Path(output_only_ipv4_file_path).parent.mkdir(
+        parents=True, exist_ok=True
+    )
+    Path(output_keenetic_file_path).parent.mkdir(
+        parents=True, exist_ok=True
+    )
 
     # Initialize output files
     try:
@@ -382,36 +424,45 @@ def main() -> None:
         end_time = start_time + (monitoring_duration_minutes * 60)
         iteration = 0
         
-        while time.time() < end_time:
-            iteration += 1
-            current_time = datetime.now()
-            logging.info(f"Итерация {iteration} мониторинга: {current_time}")
-            
-            # Process domains and collect new data
-            process_domains_monitoring(
-                domains=all_domains,
-                dns_servers=dns_servers,
-                unique_routes=unique_routes,
-                seen_domain_ips=seen_domain_ips,
-                seen_ips=seen_ips,
-                subnet_mask_for_calc=subnet_mask_for_calc,
-                output_domain_ip_file_path=output_domain_ip_file_path,
-                output_only_ipv4_file_path=output_only_ipv4_file_path,
-                output_keenetic_file_path=output_keenetic_file_path,
-                current_time=current_time
+        try:
+            while time.time() < end_time:
+                iteration += 1
+                current_time = datetime.now()
+                logging.info(
+                    f"Итерация {iteration} мониторинга: {current_time}"
+                )
+                
+                # Process domains and collect new data
+                process_domains_monitoring(
+                    domains=all_domains,
+                    dns_servers=dns_servers,
+                    unique_routes=unique_routes,
+                    seen_domain_ips=seen_domain_ips,
+                    seen_ips=seen_ips,
+                    subnet_mask_for_calc=subnet_mask_for_calc,
+                    output_domain_ip_file_path=output_domain_ip_file_path,
+                    output_only_ipv4_file_path=output_only_ipv4_file_path,
+                    output_keenetic_file_path=output_keenetic_file_path,
+                    current_time=current_time
+                )
+                
+                # Wait for next iteration if not the last one
+                if time.time() + monitoring_interval_seconds < end_time:
+                    time.sleep(monitoring_interval_seconds)
+                else:
+                    break
+        except KeyboardInterrupt:
+            logging.info(
+                f"\nМониторинг прерван пользователем после {iteration} итераций."
             )
             
-            # Wait for next iteration if not the last one
-            if time.time() + monitoring_interval_seconds < end_time:
-                time.sleep(monitoring_interval_seconds)
-            else:
-                break
-                
-        logging.info(f"Мониторинг завершен. Обработано {iteration} итераций.")
+        logging.info(
+            f"Мониторинг завершен. Обработано {iteration} итераций."
+        )
     else:
         # Single run mode (legacy behavior)
         logging.info("Запуск в режиме однократного сбора данных")
-        current_time = datetime.datetime.now()
+        current_time = datetime.now()
         process_domains_monitoring(
             domains=all_domains,
             dns_servers=dns_servers,
@@ -428,10 +479,22 @@ def main() -> None:
     logging.info("Результаты сохранены в файлы:")
     logging.info(f"1. {output_domain_ip_file_path} - домен: IPv4")
     logging.info(f"2. {output_only_ipv4_file_path} - только IPv4 адреса")
-    logging.info(f"3. {output_keenetic_file_path} - команды для Keenetic с подсетью {subnet_prefix_display}")
+    logging.info(
+        f"3. {output_keenetic_file_path} - команды для Keenetic "
+        f"с подсетью {subnet_prefix_display}"
+    )
     logging.info(f"Уникальных маршрутов: {len(unique_routes)}")
     logging.info(f"Уникальных IP-адресов: {len(seen_ips)}")
-    logging.info(f"Уникальных комбинаций домен:IP: {len(seen_domain_ips)}")
+    logging.info(
+        f"Уникальных комбинаций домен:IP: {len(seen_domain_ips)}"
+    )
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        logging.info(
+            "\nПрограмма была прервана пользователем (Ctrl+C). "
+            "Завершение работы..."
+        )
+        sys.exit(0)
